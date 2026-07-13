@@ -85,8 +85,6 @@ export class CodeReviewOrchestrator {
           options: {
             model: this.model,
             maxTurns: this.maxTurns,
-            permissionMode: 'bypassPermissions',
-            allowDangerouslySkipPermissions: true,
             allowedTools: ['Task', 'mcp__github__*', 'mcp__eslint__*'],
             agents: {
               'code-quality-analyzer': createCodeQualityAnalyzer('<file>'),
