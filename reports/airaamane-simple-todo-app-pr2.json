@@ -1,0 +1,673 @@
+{
+  "pullRequest": {
+    "owner": "airaamane",
+    "repo": "simple-todo-app",
+    "number": 2
+  },
+  "fileReviews": [
+    {
+      "file": "src/database.ts",
+      "codeQuality": {
+        "file": "src/database.ts",
+        "issues": [
+          {
+            "line": 6,
+            "severity": "high",
+            "category": "maintainability",
+            "description": "Interface method 'query' uses overly broad return type 'Promise<any[]>' and accepts 'any[]' for params, losing type safety and making it impossible to know what data structure queries will return.",
+            "suggestion": "Use generic types to make the interface type-safe: 'query<T = any>(sql: string, params?: any[]): Promise<T[]>;' or implement a more specific interface with typed result sets."
+          },
+          {
+            "line": 6,
+            "severity": "medium",
+            "category": "best-practice",
+            "description": "The 'params' parameter is optional in the interface signature but required with default in the implementation (line 13), creating inconsistency and potential confusion about parameter handling.",
+            "suggestion": "Consistently define params as required in both interface and implementation, or always mark as optional: 'query(sql: string, params?: any[]): Promise<any[]>;'"
+          },
+          {
+            "line": 13,
+            "severity": "high",
+            "category": "bug-risk",
+            "description": "MockDatabase.query() always returns an empty array [] regardless of the SQL query or parameters, making it completely non-functional. This masks bugs in consuming code that relies on actual query results.",
+            "suggestion": "Implement proper mock behavior that at least parses the SQL to determine expected return structure, or use a real in-memory database like SQLite for testing. Consider storing data in the 'data' Map that is declared but never used."
+          },
+          {
+            "line": 11,
+            "severity": "low",
+            "category": "maintainability",
+            "description": "The 'data' Map field is declared but never used in the MockDatabase implementation, creating dead code and confusion about the class's purpose.",
+            "suggestion": "Either remove the unused 'data' field or implement the query method to actually use it for storing and retrieving data."
+          },
+          {
+            "line": 10,
+            "severity": "medium",
+            "category": "maintainability",
+            "description": "MockDatabase is only a placeholder implementation with no error handling, validation, or support for different SQL operations. This is insufficient for even basic testing.",
+            "suggestion": "Expand the MockDatabase to support basic CRUD operations, or document that this is not intended for testing and recommend using a real database adapter or test database instead."
+          },
+          {
+            "line": 19,
+            "severity": "medium",
+            "category": "maintainability",
+            "description": "Exporting a singleton 'db' instance from the database module makes it a global dependency that's difficult to mock, inject, or test. All consuming code has a hard dependency on this specific instance.",
+            "suggestion": "Implement dependency injection pattern: export the Database interface and factory function, allowing callers to provide their own instances. This enables proper testing and flexibility in swapping implementations."
+          }
+        ],
+        "overallScore": 42,
+        "summary": "The database.ts file has significant issues that undermine both code quality and testability. The MockDatabase is non-functional (always returns empty arrays), type safety is compromised with 'any' types throughout, and singleton pattern prevents dependency injection. While the consuming todo.ts file properly uses parameterized queries to prevent SQL injection, the database layer itself is too abstract and incomplete to support real applications."
+      },
+      "testCoverage": {
+        "file": "src/database.ts",
+        "hasTests": false,
+        "testFiles": [],
+        "untestedPaths": [
+          {
+            "type": "class",
+            "location": "line 10: class MockDatabase implements Database",
+            "priority": "high",
+            "reasoning": "MockDatabase is never instantiated or tested; the query method always returns an empty array, which could hide bugs in database integration logic.",
+            "suggestedTest": "it('should create a MockDatabase instance', () => {\n  const mockDb = new MockDatabase();\n  expect(mockDb).toBeDefined();\n  expect(mockDb).toHaveProperty('query');\n});"
+          },
+          {
+            "type": "function",
+            "location": "line 13: async query(sql: string, params: any[] = []): Promise<any[]>",
+            "priority": "high",
+            "reasoning": "The query method is never tested; it currently always returns an empty array, making it impossible to verify that database calls work correctly or return expected data.",
+            "suggestedTest": "it('should return an empty array when query is called', async () => {\n  const mockDb = new MockDatabase();\n  const result = await mockDb.query('SELECT * FROM todos');\n  expect(result).toEqual([]);\n});\n\nit('should accept SQL and params and return empty array', async () => {\n  const mockDb = new MockDatabase();\n  const result = await mockDb.query('SELECT * FROM todos WHERE id = $1', ['123']);\n  expect(result).toEqual([]);\n});"
+          },
+          {
+            "type": "edge-case",
+            "location": "line 13: async query(sql: string, params: any[] = []): Promise<any[]>",
+            "priority": "medium",
+            "reasoning": "The query method default parameter (empty params array) is never tested with or without params to verify default behavior works correctly.",
+            "suggestedTest": "it('should handle query with default empty params', async () => {\n  const mockDb = new MockDatabase();\n  const resultWithoutParams = await mockDb.query('SELECT * FROM todos');\n  const resultWithParams = await mockDb.query('SELECT * FROM todos WHERE id = $1', ['123']);\n  expect(resultWithoutParams).toEqual([]);\n  expect(resultWithParams).toEqual([]);\n});"
+          },
+          {
+            "type": "function",
+            "location": "line 19: export const db = new MockDatabase()",
+            "priority": "high",
+            "reasoning": "The exported db instance is never tested to verify it is properly initialized and can be imported by other modules.",
+            "suggestedTest": "it('should export a db instance of MockDatabase', () => {\n  const { db } = require('./database');\n  expect(db).toBeDefined();\n  expect(typeof db.query).toBe('function');\n});"
+          },
+          {
+            "type": "branch",
+            "location": "line 11: private data: Map<string, any[]> = new Map()",
+            "priority": "low",
+            "reasoning": "The private data Map field is declared but never used in the mock implementation, and this unused code path is never tested.",
+            "suggestedTest": "it('should have a private data Map initialized', async () => {\n  const mockDb = new MockDatabase();\n  const result = await mockDb.query('SELECT * FROM todos');\n  expect(Array.isArray(result)).toBe(true);\n});"
+          }
+        ],
+        "coverageEstimate": 0,
+        "summary": "The database.ts file has zero test coverage. Neither the MockDatabase class nor its query method are tested, and the exported db instance is never validated. This is critical because the database module is imported and used throughout the application (e.g., in todo.ts) but has no tests to verify its interface contract or behavior. At minimum, the query method and db export should have tests to ensure they work correctly with the rest of the application."
+      },
+      "refactorings": {
+        "file": "src/database.ts",
+        "suggestions": [
+          {
+            "type": "rename",
+            "location": "line 6, Database interface",
+            "impact": "low",
+            "description": "The `query` method's return type uses `any[]` which loses type information. Consider using a generic type parameter to make the API type-safe and self-documenting.",
+            "before": "export interface Database {\n  query(sql: string, params?: any[]): Promise<any[]>;\n}",
+            "after": "export interface Database {\n  query<T = unknown>(sql: string, params?: any[]): Promise<T[]>;\n}",
+            "benefits": "Enables callers to specify expected result types, improving type safety and providing better IDE autocomplete and documentation."
+          },
+          {
+            "type": "pattern-improvement",
+            "location": "line 11, MockDatabase class",
+            "impact": "medium",
+            "description": "The `data` field is initialized but never used in the query method. Either implement the mock database to use this storage or remove the unused field to avoid confusion about the mock's capabilities.",
+            "before": "class MockDatabase implements Database {\n  private data: Map<string, any[]> = new Map();\n\n  async query(sql: string, params: any[] = []): Promise<any[]> {\n    // Simple mock implementation\n    return [];\n  }\n}",
+            "after": "class MockDatabase implements Database {\n  async query<T = unknown>(sql: string, params: any[] = []): Promise<T[]> {\n    // Simple mock implementation\n    return [];\n  }\n}",
+            "benefits": "Removes dead code and clarifies that this is a stub implementation, not a real in-memory database. Reduces cognitive overhead when reading the class."
+          },
+          {
+            "type": "simplify",
+            "location": "line 13, query method parameter",
+            "impact": "low",
+            "description": "The `params` parameter defaults to an empty array but could be optional (with `?`) instead, since the default value is already provided.",
+            "before": "async query(sql: string, params: any[] = []): Promise<any[]> {",
+            "after": "async query<T = unknown>(sql: string, params?: any[]): Promise<T[]> {",
+            "benefits": "Makes the method signature clearer that params are truly optional, and aligns with the interface definition (line 6). Reduces redundancy between optional markers and defaults."
+          }
+        ],
+        "summary": "The database module is minimal and structurally sound, but has three key improvement opportunities. The primary issue is the use of `any[]` for query results, which sacrifices type safety—introducing a generic type parameter would modernize the API. The MockDatabase class has an unused `data` field that creates a false impression of functionality; removing it clarifies the mock's true purpose. Finally, aligning optional parameter syntax between interface and implementation improves consistency."
+      }
+    },
+    {
+      "file": "src/todo.ts",
+      "codeQuality": {
+        "file": "src/todo.ts",
+        "issues": [
+          {
+            "line": 119,
+            "severity": "high",
+            "category": "security",
+            "description": "The generateId() function uses Math.random() for ID generation, which is cryptographically insecure and predictable. This could lead to ID collision attacks or predictable todo IDs that could be guessed by attackers.",
+            "suggestion": "Use a cryptographically secure random generator like crypto.randomUUID() or crypto.getRandomValues() instead of Math.random()."
+          },
+          {
+            "line": 53,
+            "severity": "medium",
+            "category": "maintainability",
+            "description": "Generic error message 'Invalid todo input' doesn't specify which validation failed. This makes debugging harder and provides poor user feedback.",
+            "suggestion": "Return a validation result object with specific error messages indicating which field failed validation (e.g., 'Title is required', 'Title exceeds 200 characters')."
+          },
+          {
+            "line": 24,
+            "severity": "medium",
+            "category": "maintainability",
+            "description": "The validateTodoInput function returns only boolean without explaining which validation failed. Callers cannot provide meaningful feedback to users.",
+            "suggestion": "Create a validation result type that returns both a success flag and an array of error messages describing what failed."
+          },
+          {
+            "line": 40,
+            "severity": "medium",
+            "category": "best-practice",
+            "description": "The sanitizeInput function manually escapes HTML characters, but this approach is incomplete. It doesn't handle all possible XSS vectors (e.g., attributes, event handlers) and custom implementations are error-prone.",
+            "suggestion": "Use a well-tested HTML sanitization library like DOMPurify or sanitize-html that handles comprehensive XSS prevention."
+          },
+          {
+            "line": 82,
+            "severity": "high",
+            "category": "bug-risk",
+            "description": "The getAllTodos() function casts rows as Todo[] without validation. If the database returns unexpected structure, the type assertion could mask runtime errors.",
+            "suggestion": "Validate the response structure before casting, or use a schema validation library like zod or yup to ensure type safety at runtime."
+          },
+          {
+            "line": 96,
+            "severity": "high",
+            "category": "bug-risk",
+            "description": "The getTodoById() function casts rows[0] as Todo without validation. This assumes database returns the correct shape, which could fail silently.",
+            "suggestion": "Add runtime validation to ensure the database row matches the expected Todo interface structure before casting."
+          },
+          {
+            "line": 64,
+            "severity": "info",
+            "category": "best-practice",
+            "description": "The todo object is created with createdAt as a JavaScript Date object, but it may not serialize correctly when passed through the database or API. Database timestamps should be properly typed.",
+            "suggestion": "Consider whether createdAt should be a timestamp number or ISO string for better database compatibility and serialization."
+          },
+          {
+            "line": 79,
+            "severity": "medium",
+            "category": "performance",
+            "description": "The getAllTodos() function has no pagination, limit, or filtering. Fetching all todos without constraints could cause performance issues with large datasets.",
+            "suggestion": "Add optional parameters for pagination (limit, offset) or implement cursor-based pagination to handle large datasets efficiently."
+          },
+          {
+            "line": 71,
+            "severity": "medium",
+            "category": "bug-risk",
+            "description": "No error handling for the db.query() call in createTodo(). If the database operation fails, the error will propagate unhandled, potentially leaving the application in an inconsistent state.",
+            "suggestion": "Add try-catch block with specific error handling, or ensure the caller handles promise rejection appropriately."
+          },
+          {
+            "line": 102,
+            "severity": "medium",
+            "category": "bug-risk",
+            "description": "The updateTodoStatus() function doesn't verify that the todo exists before updating, and doesn't return the update result. Silent failures could occur.",
+            "suggestion": "Return a success/failure indicator or the number of affected rows. Optionally verify the todo exists before updating."
+          }
+        ],
+        "overallScore": 68,
+        "summary": "The todo.ts file demonstrates good security awareness with parameterized queries and XSS sanitization, but has critical issues with cryptographically insecure ID generation and missing runtime type validation. The codebase lacks comprehensive error handling, has no pagination for bulk operations, and relies on generic error messages. Most async operations lack proper error handling and validation of database responses, creating silent failure risks."
+      },
+      "testCoverage": {
+        "file": "src/todo.ts",
+        "hasTests": true,
+        "testFiles": [
+          "src/todo.test.ts"
+        ],
+        "untestedPaths": [
+          {
+            "type": "function",
+            "location": "line 51: export async function createTodo(input: CreateTodoInput): Promise<Todo>",
+            "priority": "critical",
+            "reasoning": "Core business logic that creates todos; handles validation, sanitization, and database insertion without any test coverage despite being imported in test file.",
+            "suggestedTest": "it('should create a todo with sanitized input and return it with id and timestamp', async () => {\n  const input: CreateTodoInput = { title: '<script>alert(\"xss\")</script>', description: 'Test' };\n  const result = await createTodo(input);\n  expect(result.id).toBeDefined();\n  expect(result.id.startsWith('todo_')).toBe(true);\n  expect(result.title).toBe('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;');\n  expect(result.description).toBe('Test');\n  expect(result.completed).toBe(false);\n  expect(result.createdAt).toBeInstanceOf(Date);\n});"
+          },
+          {
+            "type": "branch",
+            "location": "line 52-54: createTodo validation error handling",
+            "priority": "critical",
+            "reasoning": "createTodo throws an error on invalid input, but this error path is never tested to verify the exception message and handling.",
+            "suggestedTest": "it('should throw an error with Invalid todo input message when validation fails', async () => {\n  const invalidInput: CreateTodoInput = { title: '', description: 'empty title' };\n  await expect(createTodo(invalidInput)).rejects.toThrow('Invalid todo input');\n});"
+          },
+          {
+            "type": "function",
+            "location": "line 79: export async function getAllTodos(): Promise<Todo[]>",
+            "priority": "high",
+            "reasoning": "Core database query function for fetching all todos without any test coverage; could mask database connection issues or query errors.",
+            "suggestedTest": "it('should fetch all todos from database ordered by created_at DESC', async () => {\n  const mockTodos: Todo[] = [{\n    id: 'todo_1',\n    title: 'Test 1',\n    description: 'Desc 1',\n    completed: false,\n    createdAt: new Date()\n  }];\n  jest.spyOn(db, 'query').mockResolvedValueOnce(mockTodos);\n  const result = await getAllTodos();\n  expect(result).toEqual(mockTodos);\n  expect(db.query).toHaveBeenCalledWith('SELECT * FROM todos ORDER BY created_at DESC');\n});"
+          },
+          {
+            "type": "function",
+            "location": "line 88: export async function getTodoById(id: string): Promise<Todo | null>",
+            "priority": "high",
+            "reasoning": "Database query function with two code paths (found and not found) neither of which is tested; critical for todo retrieval functionality.",
+            "suggestedTest": "it('should return a todo when id exists in database', async () => {\n  const mockTodo: Todo = { id: 'todo_123', title: 'Test', description: 'Desc', completed: false, createdAt: new Date() };\n  jest.spyOn(db, 'query').mockResolvedValueOnce([mockTodo]);\n  const result = await getTodoById('todo_123');\n  expect(result).toEqual(mockTodo);\n  expect(db.query).toHaveBeenCalledWith('SELECT * FROM todos WHERE id = $1', ['todo_123']);\n});"
+          },
+          {
+            "type": "branch",
+            "location": "line 92-94: getTodoById null return path",
+            "priority": "high",
+            "reasoning": "When a todo id is not found, getTodoById returns null but this code path is never tested.",
+            "suggestedTest": "it('should return null when todo id does not exist', async () => {\n  jest.spyOn(db, 'query').mockResolvedValueOnce([]);\n  const result = await getTodoById('nonexistent_id');\n  expect(result).toBeNull();\n  expect(db.query).toHaveBeenCalledWith('SELECT * FROM todos WHERE id = $1', ['nonexistent_id']);\n});"
+          },
+          {
+            "type": "function",
+            "location": "line 102: export async function updateTodoStatus(id: string, completed: boolean): Promise<void>",
+            "priority": "high",
+            "reasoning": "Critical update function for marking todos as complete/incomplete but has zero test coverage.",
+            "suggestedTest": "it('should update a todo completed status in database', async () => {\n  jest.spyOn(db, 'query').mockResolvedValueOnce({});\n  await updateTodoStatus('todo_123', true);\n  expect(db.query).toHaveBeenCalledWith('UPDATE todos SET completed = $1 WHERE id = $2', [true, 'todo_123']);\n});"
+          },
+          {
+            "type": "function",
+            "location": "line 110: export async function deleteTodo(id: string): Promise<void>",
+            "priority": "high",
+            "reasoning": "Data deletion function is completely untested; could lead to unintended deletions if logic is incorrect.",
+            "suggestedTest": "it('should delete a todo by id from database', async () => {\n  jest.spyOn(db, 'query').mockResolvedValueOnce({});\n  await deleteTodo('todo_123');\n  expect(db.query).toHaveBeenCalledWith('DELETE FROM todos WHERE id = $1', ['todo_123']);\n});"
+          },
+          {
+            "type": "edge-case",
+            "location": "line 25: validateTodoInput - whitespace-only title",
+            "priority": "medium",
+            "reasoning": "Title with only spaces (e.g. '   ') should fail validation but test only checks empty string; trim() call on line 56 suggests whitespace handling is important.",
+            "suggestedTest": "it('should return false for title with only whitespace', () => {\n  const input: CreateTodoInput = { title: '   ', description: 'Some description' };\n  expect(validateTodoInput(input)).toBe(false);\n});"
+          },
+          {
+            "type": "edge-case",
+            "location": "line 28: validateTodoInput - boundary condition at 200 characters",
+            "priority": "medium",
+            "reasoning": "Test checks > 200 (fails at 201) but does not verify that exactly 200 characters is valid, missing potential off-by-one errors.",
+            "suggestedTest": "it('should return true for title with exactly 200 characters', () => {\n  const input: CreateTodoInput = { title: 'a'.repeat(200), description: 'Valid' };\n  expect(validateTodoInput(input)).toBe(true);\n});"
+          },
+          {
+            "type": "edge-case",
+            "location": "line 31: validateTodoInput - boundary condition at 1000 characters",
+            "priority": "medium",
+            "reasoning": "Test checks > 1000 (fails at 1001) but does not verify that exactly 1000 characters passes, missing off-by-one errors.",
+            "suggestedTest": "it('should return true for description with exactly 1000 characters', () => {\n  const input: CreateTodoInput = { title: 'Valid', description: 'a'.repeat(1000) };\n  expect(validateTodoInput(input)).toBe(true);\n});"
+          },
+          {
+            "type": "edge-case",
+            "location": "line 31: validateTodoInput - optional description",
+            "priority": "low",
+            "reasoning": "Line 31 checks description if it exists but does not test the case where description is undefined or missing.",
+            "suggestedTest": "it('should return true when description is undefined', () => {\n  const input: CreateTodoInput = { title: 'Valid title', description: undefined };\n  expect(validateTodoInput(input)).toBe(true);\n});"
+          },
+          {
+            "type": "edge-case",
+            "location": "line 42-45: sanitizeInput - multiple special characters",
+            "priority": "low",
+            "reasoning": "Tests only verify individual character escaping but not a comprehensive mix of all four special characters in one string.",
+            "suggestedTest": "it('should escape all special characters in mixed content', () => {\n  const input = '<div class=\"test\">It\\'s HTML</div>';\n  const sanitized = sanitizeInput(input);\n  expect(sanitized).toBe('&lt;div class=&quot;test&quot;&gt;It&#039;s HTML&lt;/div&gt;');\n});"
+          },
+          {
+            "type": "function",
+            "location": "line 118: function generateId(): string",
+            "priority": "medium",
+            "reasoning": "Internal ID generation function is never tested; could produce duplicate IDs or malformed IDs in edge cases.",
+            "suggestedTest": "it('should generate unique IDs with todo_ prefix and timestamp', () => {\n  const id1 = (todo as any).generateId();\n  const id2 = (todo as any).generateId();\n  expect(id1).toMatch(/^todo_\\d+_[a-z0-9]+$/);\n  expect(id2).toMatch(/^todo_\\d+_[a-z0-9]+$/);\n  expect(id1).not.toBe(id2);\n});"
+          }
+        ],
+        "coverageEstimate": 22,
+        "summary": "The file has minimal test coverage at 22% (2 of 9 exported functions tested). While validateTodoInput and sanitizeInput have good coverage, the critical CRUD operations (createTodo, getAllTodos, getTodoById, updateTodoStatus, deleteTodo) are completely untested, leaving major database interactions and core business logic unvalidated. Additionally, several edge cases for input validation (whitespace-only titles, exact boundary conditions) and the internal ID generation function lack test coverage. The test suite needs significant expansion to cover all async database operations and error handling paths."
+      },
+      "refactorings": {
+        "file": "src/todo.ts",
+        "suggestions": [
+          {
+            "type": "simplify",
+            "location": "validateTodoInput function (lines 24-35)",
+            "impact": "high",
+            "description": "The validation function uses multiple if statements that return false individually. This can be simplified using early-return or combining conditions with logical operators for better readability and maintainability.",
+            "before": "export function validateTodoInput(input: CreateTodoInput): boolean {\n  if (!input.title || input.title.trim().length === 0) {\n    return false;\n  }\n  if (input.title.length > 200) {\n    return false;\n  }\n  if (input.description && input.description.length > 1000) {\n    return false;\n  }\n  return true;\n}",
+            "after": "export function validateTodoInput(input: CreateTodoInput): boolean {\n  const isTitleEmpty = !input.title || input.title.trim().length === 0;\n  const isTitleTooLong = input.title.length > 200;\n  const isDescriptionTooLong = input.description && input.description.length > 1000;\n  \n  return !isTitleEmpty && !isTitleTooLong && !isDescriptionTooLong;\n}",
+            "benefits": "Reduces nesting and cognitive load by consolidating all validation rules into a single boolean expression. Makes it clearer what constitutes a valid input by reading the final return statement."
+          },
+          {
+            "type": "extract-function",
+            "location": "sanitizeInput function (lines 40-46)",
+            "impact": "medium",
+            "description": "The sanitizeInput function performs HTML entity encoding. While functional, the chained replace calls could be extracted into a constant map for maintainability and extensibility.",
+            "before": "export function sanitizeInput(input: string): string {\n  return input\n    .replace(/</g, '&lt;')\n    .replace(/>/g, '&gt;')\n    .replace(/\"/g, '&quot;')\n    .replace(/'/g, '&#039;');\n}",
+            "after": "const HTML_ENTITY_MAP: Record<string, string> = {\n  '<': '&lt;',\n  '>': '&gt;',\n  '\"': '&quot;',\n  \"'\": '&#039;'\n};\n\nexport function sanitizeInput(input: string): string {\n  return input.replace(/[<>\"']/g, (char) => HTML_ENTITY_MAP[char] || char);\n}",
+            "benefits": "The constant map makes it easier to add new entities in the future and improves performance by using a single regex pass instead of four. The code intent becomes clearer with named mapping."
+          },
+          {
+            "type": "extract-function",
+            "location": "createTodo function (lines 51-74)",
+            "impact": "medium",
+            "description": "The createTodo function mixes sanitization, todo object creation, and database insertion. The todo object construction (lines 59-65) should be extracted into a separate factory function for reusability and testability.",
+            "before": "  const sanitizedTitle = sanitizeInput(input.title.trim());\n  const sanitizedDescription = sanitizeInput(input.description || '');\n\n  const todo: Todo = {\n    id: generateId(),\n    title: sanitizedTitle,\n    description: sanitizedDescription,\n    completed: false,\n    createdAt: new Date()\n  };",
+            "after": "function buildTodo(sanitizedTitle: string, sanitizedDescription: string): Todo {\n  return {\n    id: generateId(),\n    title: sanitizedTitle,\n    description: sanitizedDescription,\n    completed: false,\n    createdAt: new Date()\n  };\n}\n\n  const sanitizedTitle = sanitizeInput(input.title.trim());\n  const sanitizedDescription = sanitizeInput(input.description || '');\n  const todo = buildTodo(sanitizedTitle, sanitizedDescription);",
+            "benefits": "Separates object construction concerns from business logic, making the createTodo function more concise and the todo factory reusable in tests or other contexts."
+          },
+          {
+            "type": "simplify",
+            "location": "getTodoById function (lines 88-97)",
+            "impact": "low",
+            "description": "The function uses an explicit length check followed by array access. This pattern can be simplified using array destructuring or the nullish coalescing operator for cleaner code.",
+            "before": "export async function getTodoById(id: string): Promise<Todo | null> {\n  const query = 'SELECT * FROM todos WHERE id = $1';\n  const rows = await db.query(query, [id]);\n\n  if (rows.length === 0) {\n    return null;\n  }\n\n  return rows[0] as Todo;\n}",
+            "after": "export async function getTodoById(id: string): Promise<Todo | null> {\n  const query = 'SELECT * FROM todos WHERE id = $1';\n  const rows = await db.query(query, [id]);\n  return (rows[0] as Todo) ?? null;\n}",
+            "benefits": "Reduces lines of code and eliminates the explicit length check. The nullish coalescing operator makes it clear that we're handling the absence of a result in a single, idiomatic expression."
+          },
+          {
+            "type": "rename",
+            "location": "Database result variable in getAllTodos (line 81) and getTodoById (line 90)",
+            "impact": "low",
+            "description": "The variable 'rows' is used for database query results, but the context is clear enough that more descriptive names like 'todoRows' or just 'todos' could improve code clarity, especially when multiple query types exist in the same file.",
+            "before": "export async function getAllTodos(): Promise<Todo[]> {\n  const query = 'SELECT * FROM todos ORDER BY created_at DESC';\n  const rows = await db.query(query);\n  return rows as Todo[];\n}",
+            "after": "export async function getAllTodos(): Promise<Todo[]> {\n  const query = 'SELECT * FROM todos ORDER BY created_at DESC';\n  const todoRows = await db.query(query);\n  return todoRows as Todo[];\n}",
+            "benefits": "More descriptive variable names reduce cognitive load when reading the code. 'todoRows' explicitly signals that the result is a collection of todo records, not a generic database result."
+          },
+          {
+            "type": "pattern-improvement",
+            "location": "Database query pattern across all functions (lines 68-71, 80-82, 89-96, 103-104, 111-112)",
+            "impact": "high",
+            "description": "Database queries are scattered throughout with duplicated query construction and parameter binding logic. This should be refactored into a query helper or data access object (DAO) layer for consistency, security, and maintainability.",
+            "before": "  const query = 'INSERT INTO todos (id, title, description, completed, created_at) VALUES ($1, $2, $3, $4, $5)';\n  const params = [todo.id, todo.title, todo.description, todo.completed, todo.createdAt];\n  await db.query(query, params);\n\n  // and later in getTodoById:\n  const query = 'SELECT * FROM todos WHERE id = $1';\n  const rows = await db.query(query, [id]);",
+            "after": "// Create a data access layer:\nclass TodoRepository {\n  async create(todo: Todo): Promise<void> {\n    const query = 'INSERT INTO todos (id, title, description, completed, created_at) VALUES ($1, $2, $3, $4, $5)';\n    const params = [todo.id, todo.title, todo.description, todo.completed, todo.createdAt];\n    await db.query(query, params);\n  }\n\n  async findById(id: string): Promise<Todo | null> {\n    const query = 'SELECT * FROM todos WHERE id = $1';\n    const rows = await db.query(query, [id]);\n    return (rows[0] as Todo) ?? null;\n  }\n\n  async findAll(): Promise<Todo[]> {\n    const query = 'SELECT * FROM todos ORDER BY created_at DESC';\n    const todoRows = await db.query(query);\n    return todoRows as Todo[];\n  }\n\n  async updateStatus(id: string, completed: boolean): Promise<void> {\n    const query = 'UPDATE todos SET completed = $1 WHERE id = $2';\n    await db.query(query, [completed, id]);\n  }\n\n  async delete(id: string): Promise<void> {\n    const query = 'DELETE FROM todos WHERE id = $1';\n    await db.query(query, [id]);\n  }\n}\n\n// Then export the repository instance:\nexport const todoRepository = new TodoRepository();\n\n// Refactor exported functions to use the repository:\nexport async function createTodo(input: CreateTodoInput): Promise<Todo> {\n  if (!validateTodoInput(input)) {\n    throw new Error('Invalid todo input');\n  }\n\n  const sanitizedTitle = sanitizeInput(input.title.trim());\n  const sanitizedDescription = sanitizeInput(input.description || '');\n  const todo = buildTodo(sanitizedTitle, sanitizedDescription);\n  await todoRepository.create(todo);\n  return todo;\n}",
+            "benefits": "Consolidating all database operations into a repository class eliminates query duplication, centralizes SQL management for easier updates, and makes the code more testable by allowing the repository to be mocked. This follows the Data Access Object (DAO) pattern."
+          }
+        ],
+        "summary": "The todo.ts file is well-structured and security-conscious, but has opportunities for modernization and pattern improvement. The main priorities are: (1) consolidate database queries into a repository layer to eliminate duplication and improve maintainability (high impact), (2) simplify the validation logic by using a single boolean expression (high impact), and (3) extract the sanitization map and todo factory functions for better reusability and performance (medium impact). These changes would align the code with SOLID principles and make it more testable and maintainable as the application scales."
+      }
+    },
+    {
+      "file": "src/todo.test.ts",
+      "codeQuality": {
+        "file": "src/todo.test.ts",
+        "issues": [
+          {
+            "line": 5,
+            "severity": "high",
+            "category": "bug-risk",
+            "description": "Missing import for createTodo function even though it's listed in the import statement. The test suite does not actually test the createTodo function despite importing it.",
+            "suggestion": "Either add comprehensive tests for createTodo or remove it from the imports. The createTodo function is critical business logic that requires testing for validation, sanitization, and database insertion."
+          },
+          {
+            "line": 7,
+            "severity": "high",
+            "category": "maintainability",
+            "description": "Incomplete test coverage. The test suite only covers validateTodoInput and sanitizeInput functions, but ignores critical functions like createTodo, getAllTodos, getTodoById, updateTodoStatus, and deleteTodo.",
+            "suggestion": "Add test suites for all exported functions. Include tests for database operations, error handling, edge cases, and async operations. Consider aiming for at least 80% code coverage."
+          },
+          {
+            "line": 43,
+            "severity": "medium",
+            "category": "maintainability",
+            "description": "Test for sanitizeInput uses hardcoded expected value which could be fragile. The test on line 46 expects a specific escape sequence that may change if sanitization logic is updated.",
+            "suggestion": "Add more diverse test cases for sanitizeInput covering different scenarios: mixed special characters, Unicode characters, empty strings, null-like values. Consider parameterized tests."
+          },
+          {
+            "line": 49,
+            "severity": "medium",
+            "category": "maintainability",
+            "description": "Weak assertion using toContain() instead of strict equality. Line 52 only checks if the escaped quote exists somewhere in the output, not if the entire output is correct.",
+            "suggestion": "Use toBe() or toEqual() for stricter assertions: expect(sanitizeInput(\"It's a test\")).toBe(\"It&#039;s a test\");"
+          },
+          {
+            "line": 25,
+            "severity": "medium",
+            "category": "bug-risk",
+            "description": "Test at line 25 checks title length at exactly 201 characters, but the validation logic uses > 200. The test should verify the boundary condition more thoroughly (test both 200 and 201).",
+            "suggestion": "Add explicit boundary tests: one test for exactly 200 characters (should pass) and one for 201 characters (should fail) to ensure the boundary condition is correctly implemented."
+          },
+          {
+            "line": 33,
+            "severity": "medium",
+            "category": "bug-risk",
+            "description": "Missing test for empty or missing description. The validation logic allows optional description (checks with &&), but there's no test verifying that empty description is accepted.",
+            "suggestion": "Add test cases: one with empty string description and one with undefined/missing description to ensure the optional field is properly handled."
+          },
+          {
+            "line": 42,
+            "severity": "low",
+            "category": "style",
+            "description": "Test suite lacks testing for edge cases in sanitizeInput: null values, undefined values, very long strings, or strings with multiple consecutive special characters.",
+            "suggestion": "Add tests for edge cases like: '', null, undefined, very long strings with repeated special chars, mixed Unicode and HTML special characters."
+          },
+          {
+            "line": 7,
+            "severity": "low",
+            "category": "best-practice",
+            "description": "No setup or teardown hooks (beforeEach/afterEach) defined. As test suite grows to include database operations, proper setup/teardown will be essential.",
+            "suggestion": "Add beforeEach/afterEach hooks to prepare test data and clean up after tests, especially when database integration tests are added."
+          },
+          {
+            "line": 5,
+            "severity": "low",
+            "category": "maintainability",
+            "description": "The CreateTodoInput interface is imported but not used directly in the test cases. While it provides type safety, the tests could be more explicit about testing the interface contract.",
+            "suggestion": "Consider adding type-specific test cases that verify the interface requirements are met by the validation and sanitization functions."
+          }
+        ],
+        "overallScore": 62,
+        "summary": "The test file provides basic coverage for validation and sanitization functions but has significant gaps. Critical issues include incomplete test coverage of 5 untested functions, weak test assertions, missing boundary condition tests, and lack of async/database operation testing. The test suite would benefit from expanded coverage, stricter assertions, and comprehensive edge case testing to ensure the todo application functions correctly in production."
+      },
+      "testCoverage": {
+        "file": "src/todo.test.ts",
+        "hasTests": true,
+        "testFiles": [
+          "src/todo.test.ts"
+        ],
+        "untestedPaths": [
+          {
+            "type": "function",
+            "location": "line 51: async function createTodo(input: CreateTodoInput): Promise<Todo>",
+            "priority": "critical",
+            "reasoning": "This is a core function that creates todos in the database; untested error handling and success paths could allow invalid data to be persisted.",
+            "suggestedTest": "it('should create a todo with sanitized input and valid data', async () => {\n  const input: CreateTodoInput = {\n    title: '  Buy milk  ',\n    description: '<script>alert(\"xss\")</script>'\n  };\n  const result = await createTodo(input);\n  expect(result.id).toBeDefined();\n  expect(result.title).toContain('&lt;');\n  expect(result.completed).toBe(false);\n  expect(result.createdAt).toBeInstanceOf(Date);\n});"
+          },
+          {
+            "type": "branch",
+            "location": "line 52-54: if (!validateTodoInput(input)) { throw new Error(...) }",
+            "priority": "high",
+            "reasoning": "Error path in createTodo is not tested; callers should handle this error but without a test, the error message contract is unclear.",
+            "suggestedTest": "it('should throw error when creating todo with invalid input', async () => {\n  const input: CreateTodoInput = {\n    title: '',\n    description: 'Some description'\n  };\n  await expect(createTodo(input)).rejects.toThrow('Invalid todo input');\n});"
+          },
+          {
+            "type": "function",
+            "location": "line 79: async function getAllTodos(): Promise<Todo[]>",
+            "priority": "high",
+            "reasoning": "Core query function with no tests; cannot verify correct database query execution or result handling.",
+            "suggestedTest": "it('should retrieve all todos from database', async () => {\n  const todos = await getAllTodos();\n  expect(Array.isArray(todos)).toBe(true);\n});"
+          },
+          {
+            "type": "function",
+            "location": "line 88: async function getTodoById(id: string): Promise<Todo | null>",
+            "priority": "high",
+            "reasoning": "Critical read function with no tests; both the success and null-return paths are untested.",
+            "suggestedTest": "it('should return null when todo does not exist', async () => {\n  const result = await getTodoById('nonexistent-id');\n  expect(result).toBeNull();\n});\n\nit('should return todo when found by id', async () => {\n  const result = await getTodoById('some-valid-id');\n  if (result) {\n    expect(result.id).toBeDefined();\n  }\n});"
+          },
+          {
+            "type": "branch",
+            "location": "line 92-94: if (rows.length === 0) { return null; }",
+            "priority": "high",
+            "reasoning": "The null-return case for getTodoById when no rows are found is not tested.",
+            "suggestedTest": "it('should return null from getTodoById when no rows match', async () => {\n  const result = await getTodoById('definitely-nonexistent-id');\n  expect(result).toBeNull();\n});"
+          },
+          {
+            "type": "function",
+            "location": "line 102: async function updateTodoStatus(id: string, completed: boolean): Promise<void>",
+            "priority": "high",
+            "reasoning": "Update operation is untested; cannot verify that the correct parameters are passed to the database query.",
+            "suggestedTest": "it('should update todo status to completed', async () => {\n  await updateTodoStatus('test-todo-id', true);\n  // If db.query is mocked, verify it was called with correct parameters\n  expect(true).toBe(true);\n});"
+          },
+          {
+            "type": "function",
+            "location": "line 110: async function deleteTodo(id: string): Promise<void>",
+            "priority": "high",
+            "reasoning": "Delete operation is untested; no verification that the correct DELETE query is executed.",
+            "suggestedTest": "it('should delete a todo by id', async () => {\n  await deleteTodo('test-todo-id');\n  // If db.query is mocked, verify it was called with DELETE query\n  expect(true).toBe(true);\n});"
+          },
+          {
+            "type": "edge-case",
+            "location": "line 24-35: validateTodoInput with boundary values",
+            "priority": "medium",
+            "reasoning": "Boundary conditions at exactly 200 characters for title and 1000 for description are not tested; off-by-one errors could slip through.",
+            "suggestedTest": "it('should return true for title with exactly 200 characters', () => {\n  const input: CreateTodoInput = {\n    title: 'a'.repeat(200),\n    description: 'Valid description'\n  };\n  expect(validateTodoInput(input)).toBe(true);\n});\n\nit('should return true for description with exactly 1000 characters', () => {\n  const input: CreateTodoInput = {\n    title: 'Valid title',\n    description: 'b'.repeat(1000)\n  };\n  expect(validateTodoInput(input)).toBe(true);\n});"
+          },
+          {
+            "type": "edge-case",
+            "location": "line 40-46: sanitizeInput with all special characters",
+            "priority": "medium",
+            "reasoning": "Test only checks for <, >, \", and ' separately; comprehensive string with multiple special characters is not tested.",
+            "suggestedTest": "it('should escape all HTML special characters in a mixed string', () => {\n  const input = '<div class=\"test\">It\\'s a test & more</div>';\n  const sanitized = sanitizeInput(input);\n  expect(sanitized).not.toContain('<');\n  expect(sanitized).not.toContain('>');\n  expect(sanitized).not.toContain('\"');\n  expect(sanitized).not.toContain(\"'\");\n});"
+          },
+          {
+            "type": "edge-case",
+            "location": "line 25: validateTodoInput title trimming check",
+            "priority": "medium",
+            "reasoning": "The function trims title before checking length, but test with whitespace-only title is not explicit.",
+            "suggestedTest": "it('should return false for title with only whitespace', () => {\n  const input: CreateTodoInput = {\n    title: '   ',\n    description: 'Valid description'\n  };\n  expect(validateTodoInput(input)).toBe(false);\n});"
+          },
+          {
+            "type": "edge-case",
+            "location": "line 31-33: validateTodoInput optional description",
+            "priority": "low",
+            "reasoning": "The function allows optional description (line 31 checks 'if (input.description &&'), but no test verifies behavior when description is undefined or null.",
+            "suggestedTest": "it('should return true for valid input with undefined description', () => {\n  const input: CreateTodoInput = {\n    title: 'Valid title',\n    description: undefined as any\n  };\n  expect(validateTodoInput(input)).toBe(true);\n});"
+          }
+        ],
+        "coverageEstimate": 29,
+        "summary": "The test file covers only 2 of 7 exported functions (validateTodoInput and sanitizeInput), with a coverage estimate of 29%. Critical gaps include the async createTodo, getTodoById, getAllTodos, updateTodoStatus, and deleteTodo functions which are entirely untested. Additionally, important edge cases like boundary validation values and comprehensive XSS sanitization scenarios are missing. The database layer integration is untested, making it impossible to verify that database queries are executed correctly."
+      },
+      "refactorings": {
+        "file": "src/todo.test.ts",
+        "suggestions": [
+          {
+            "type": "extract-function",
+            "location": "lines 10-31 (validateTodoInput describe block)",
+            "impact": "high",
+            "description": "The four test cases for validateTodoInput all follow the same pattern: create a CreateTodoInput object, call validateTodoInput, and assert the result. Extract a helper function to reduce duplication and improve test maintainability.",
+            "before": "    it('should return true for valid input', () => {\n      const input: CreateTodoInput = {\n        title: 'Buy groceries',\n        description: 'Milk, eggs, bread'\n      };\n      expect(validateTodoInput(input)).toBe(true);\n    });\n\n    it('should return false for empty title', () => {\n      const input: CreateTodoInput = {\n        title: '',\n        description: 'Some description'\n      };\n      expect(validateTodoInput(input)).toBe(false);\n    });\n\n    it('should return false for title exceeding 200 characters', () => {\n      const input: CreateTodoInput = {\n        title: 'a'.repeat(201),\n        description: 'Some description'\n      };\n      expect(validateTodoInput(input)).toBe(false);\n    });\n\n    it('should return false for description exceeding 1000 characters', () => {\n      const input: CreateTodoInput = {\n        title: 'Valid title',\n        description: 'a'.repeat(1001)\n      };\n      expect(validateTodoInput(input)).toBe(false);\n    });",
+            "after": "    const testValidation = (description: string, input: CreateTodoInput, expected: boolean) => {\n      it(description, () => {\n        expect(validateTodoInput(input)).toBe(expected);\n      });\n    };\n\n    testValidation('should return true for valid input', {\n      title: 'Buy groceries',\n      description: 'Milk, eggs, bread'\n    }, true);\n\n    testValidation('should return false for empty title', {\n      title: '',\n      description: 'Some description'\n    }, false);\n\n    testValidation('should return false for title exceeding 200 characters', {\n      title: 'a'.repeat(201),\n      description: 'Some description'\n    }, false);\n\n    testValidation('should return false for description exceeding 1000 characters', {\n      title: 'Valid title',\n      description: 'a'.repeat(1001)\n    }, false);",
+            "benefits": "Reduces test duplication by ~50%, makes it easier to add new validation tests, and centralizes the validation test pattern. Changes to the test structure only need to be made in one place."
+          },
+          {
+            "type": "pattern-improvement",
+            "location": "lines 25-31 (test data setup)",
+            "impact": "medium",
+            "description": "Test data for boundary conditions (201 and 1001 character strings) are hardcoded inline. Extract named constants for these magic numbers to improve test readability and make it easier to correlate with validation rules in the source code.",
+            "before": "    it('should return false for title exceeding 200 characters', () => {\n      const input: CreateTodoInput = {\n        title: 'a'.repeat(201),\n        description: 'Some description'\n      };\n      expect(validateTodoInput(input)).toBe(false);\n    });\n\n    it('should return false for description exceeding 1000 characters', () => {\n      const input: CreateTodoInput = {\n        title: 'Valid title',\n        description: 'a'.repeat(1001)\n      };\n      expect(validateTodoInput(input)).toBe(false);\n    });",
+            "after": "    const TITLE_MAX_LENGTH = 200;\n    const DESC_MAX_LENGTH = 1000;\n\n    it('should return false for title exceeding 200 characters', () => {\n      const input: CreateTodoInput = {\n        title: 'a'.repeat(TITLE_MAX_LENGTH + 1),\n        description: 'Some description'\n      };\n      expect(validateTodoInput(input)).toBe(false);\n    });\n\n    it('should return false for description exceeding 1000 characters', () => {\n      const input: CreateTodoInput = {\n        title: 'Valid title',\n        description: 'a'.repeat(DESC_MAX_LENGTH + 1)\n      };\n      expect(validateTodoInput(input)).toBe(false);\n    });",
+            "benefits": "Makes the boundary conditions explicit and self-documenting, making it easier to maintain these tests if constraints change. Readers immediately see what limits are being tested without calculation."
+          },
+          {
+            "type": "modernize",
+            "location": "lines 42-54 (sanitizeInput describe block)",
+            "impact": "medium",
+            "description": "The sanitizeInput tests use `.toContain()` for a partial match instead of an exact match assertion. This reduces test precision and makes the test less strict. Use `.toBe()` with the exact expected output for stronger test coverage.",
+            "before": "  describe('sanitizeInput', () => {\n    it('should escape HTML special characters', () => {\n      const input = '<script>alert(\"xss\")</script>';\n      const sanitized = sanitizeInput(input);\n      expect(sanitized).toBe('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;');\n    });\n\n    it('should escape single quotes', () => {\n      const input = \"It's a test\";\n      const sanitized = sanitizeInput(input);\n      expect(sanitized).toContain('&#039;');\n    });\n  });",
+            "after": "  describe('sanitizeInput', () => {\n    it('should escape HTML special characters', () => {\n      const input = '<script>alert(\"xss\")</script>';\n      const sanitized = sanitizeInput(input);\n      expect(sanitized).toBe('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;');\n    });\n\n    it('should escape single quotes', () => {\n      const input = \"It's a test\";\n      const sanitized = sanitizeInput(input);\n      expect(sanitized).toBe(\"It&#039;s a test\");\n    });\n  });",
+            "benefits": "Strengthens test assertions by verifying the complete output instead of just checking for a substring. This catches unintended side effects or unexpected transformations in the sanitization logic."
+          }
+        ],
+        "summary": "The test file is well-structured and uses modern Jest conventions, but contains three refactoring opportunities: (1) extract a helper function to eliminate duplication across the four validateTodoInput test cases, (2) introduce named constants for boundary-value magic numbers to improve clarity and maintainability, and (3) strengthen the sanitizeInput quote test by using exact assertions instead of substring matching. These changes would reduce code duplication, improve test maintainability, and increase test precision."
+      }
+    }
+  ],
+  "summary": {
+    "totalFiles": 3,
+    "overallScore": 57,
+    "criticalIssues": 0,
+    "highPriorityTests": 18,
+    "refactoringOpportunities": 12
+  },
+  "recommendations": [
+    {
+      "priority": "critical",
+      "category": "Security",
+      "description": "Replace Math.random() with crypto.randomUUID() in generateId() function to prevent predictable ID generation that could be exploited by attackers.",
+      "files": [
+        "src/todo.ts"
+      ]
+    },
+    {
+      "priority": "critical",
+      "category": "Testing",
+      "description": "Add comprehensive test coverage for all CRUD operations (createTodo, getAllTodos, getTodoById, updateTodoStatus, deleteTodo) which are currently untested despite being critical business logic.",
+      "files": [
+        "src/todo.ts",
+        "src/todo.test.ts"
+      ]
+    },
+    {
+      "priority": "high",
+      "category": "Testing",
+      "description": "Implement tests for the database module to verify the Database interface and MockDatabase implementation work correctly with consuming code.",
+      "files": [
+        "src/database.ts"
+      ]
+    },
+    {
+      "priority": "high",
+      "category": "Type Safety",
+      "description": "Add runtime validation for database query results instead of using type assertions (as Todo, as Todo[]) which could mask runtime errors if the database returns unexpected data structures.",
+      "files": [
+        "src/todo.ts"
+      ]
+    },
+    {
+      "priority": "high",
+      "category": "Maintainability",
+      "description": "Replace MockDatabase's non-functional stub implementation with a real in-memory database or proper mock that stores and returns data to enable meaningful testing.",
+      "files": [
+        "src/database.ts"
+      ]
+    },
+    {
+      "priority": "high",
+      "category": "Architecture",
+      "description": "Refactor database queries into a repository/DAO pattern to eliminate duplication across createTodo, getAllTodos, getTodoById, updateTodoStatus, and deleteTodo functions.",
+      "files": [
+        "src/todo.ts"
+      ]
+    },
+    {
+      "priority": "medium",
+      "category": "Error Handling",
+      "description": "Improve validation error messages to specify which field failed validation instead of returning generic 'Invalid todo input' errors, enabling better user feedback.",
+      "files": [
+        "src/todo.ts"
+      ]
+    },
+    {
+      "priority": "medium",
+      "category": "Dependency Injection",
+      "description": "Replace the singleton db export with dependency injection to enable proper testing and allow swapping database implementations without modifying consuming code.",
+      "files": [
+        "src/database.ts"
+      ]
+    },
+    {
+      "priority": "medium",
+      "category": "Performance",
+      "description": "Add pagination support to getAllTodos() to prevent performance issues when fetching large datasets from the database.",
+      "files": [
+        "src/todo.ts"
+      ]
+    },
+    {
+      "priority": "low",
+      "category": "Type Safety",
+      "description": "Add generic type parameters to the Database interface query method to improve type safety and enable callers to specify expected result types.",
+      "files": [
+        "src/database.ts"
+      ]
+    }
+  ],
+  "metadata": {
+    "analyzedAt": "2026-07-10T00:00:00.000Z",
+    "duration": 45000,
+    "agentVersions": {
+      "code-quality-analyzer": "1.0",
+      "test-coverage-analyzer": "1.0",
+      "refactoring-suggester": "1.0"
+    }
+  }
+}
